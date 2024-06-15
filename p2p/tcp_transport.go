@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -10,15 +11,17 @@ import (
 
 type TCPPeer struct {
 	//connection with peer
-	conn net.Conn
+	net.Conn
 
 	// dial we dial and retrieve conn: outbound =true
 	// dial we accept and retrieve conn: outbound =false
 	outbound bool
+	Wg       *sync.WaitGroup
 }
 
-func (p *TCPPeer) Close() error {
-	return p.conn.Close()
+func (p *TCPPeer) Send(b []byte) error {
+	_, err := p.Write(b)
+	return err
 }
 
 type TCPTransportOps struct {
@@ -39,8 +42,9 @@ type TCPTransport struct {
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
-		conn:     conn,
+		Conn:     conn,
 		outbound: outbound,
+		Wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -70,27 +74,44 @@ func (t *TCPTransport) Consume() <-chan RPC {
 	return t.rpcch
 }
 
+func (t *TCPTransport) Close() error {
+	return t.listner.Close()
+}
+
+func (t *TCPTransport) Dial(addr string) error {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return err
+	}
+	go t.handleConn(conn, true)
+	return nil
+
+}
+
 func (t *TCPTransport) startAcceptLoop() {
 	for {
 
 		conn, err := t.listner.Accept()
+		if errors.Is(err, net.ErrClosed) {
+			return
+		}
 		if err != nil {
 			fmt.Printf("TCP accept error: %s\n", err)
+			return
 		}
-
-		go t.handleConn(conn)
+		//fmt.Printf("new incoming connection %+v\n", conn)
+		go t.handleConn(conn, false)
 	}
 }
 
-func (t *TCPTransport) handleConn(conn net.Conn) {
+func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	var err error
 
 	defer func() {
 		fmt.Printf("dropping peer connection: %s", err)
 	}()
 
-	peer := NewTCPPeer(conn, true)
-	fmt.Printf("new incoming connection %+v\n", peer)
+	peer := NewTCPPeer(conn, outbound)
 
 	if err := t.HandshakeFunc(peer); err != nil {
 		conn.Close()
@@ -117,9 +138,13 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 		if err != nil {
 			return
 		}
-		rpc.From = conn.RemoteAddr()
+		rpc.From = conn.RemoteAddr().String()
+		peer.Wg.Add(1)
+		fmt.Println("waiting till stream is done")
 		t.rpcch <- rpc
-		fmt.Printf("message: %+v\n", rpc)
+		peer.Wg.Wait()
+		fmt.Println("stream done.. continuing normal loop")
+		// fmt.Printf("message: %+v\n", rpc)
 	}
 
 }
