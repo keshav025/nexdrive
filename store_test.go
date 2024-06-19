@@ -44,7 +44,7 @@ func TestStoreDeleteKey(t *testing.T) {
 	key := "momsbestpicture"
 	data := []byte("some jpg bytes")
 	dataReader := bytes.NewReader(data)
-	if err := s.writeStream(key, dataReader); err != nil {
+	if _, err := s.writeStream(key, dataReader); err != nil {
 		t.Error(err)
 	}
 
@@ -63,14 +63,14 @@ func TestStore(t *testing.T) {
 	key := "momsbestpicture"
 	data := []byte("some jpg bytes")
 	dataReader := bytes.NewReader([]byte("some jpg bytes"))
-	if err := s.writeStream(key, dataReader); err != nil {
+	if _, err := s.writeStream(key, dataReader); err != nil {
 		t.Error(err)
 	}
 	if ok := s.Has(key); !ok {
 		t.Errorf("expected to have key : %s", key)
 	}
 
-	r, err := s.Read(key)
+	_, r, err := s.Read(key)
 	if err != nil {
 		t.Error(err)
 		return

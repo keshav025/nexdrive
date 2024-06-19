@@ -29,6 +29,7 @@ func makeServer(listnerAddr string, nodes ...string) *FileServer {
 	// }()
 
 	fileServerOpts := FileServerOpts{
+		EncKey:            newEncryptionKey(),
 		ListenAddr:        listnerAddr,
 		StorageRoot:       listnerAddr + "_network",
 		PathTransformFunc: CASPathTransformFunc,
@@ -64,7 +65,18 @@ func main() {
 	time.Sleep(5 * time.Second)
 
 	data := bytes.NewReader([]byte("my big data file here!"))
-	s1.StoreData("myprovatedata", data)
+	s1.Store("myprovatedata", data)
+
+	// _, r, err := s1.Get("myprovatedata")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// b, err := ioutil.ReadAll(r)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Println("file got: ", string(b))
 	select {
 	case <-c:
 		fmt.Println("closing the servers")
