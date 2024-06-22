@@ -78,7 +78,7 @@ func (s *FileServer) Get(key string) (int64, io.Reader, error) {
 
 	msg := Message{
 		Payload: MessageGeteFile{
-			Key: key,
+			Key: hashKey(key),
 		},
 	}
 	fmt.Printf("file (%s) cannot be found locally with key, checking in network\n", key)
@@ -148,7 +148,7 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 
 	msg := Message{
 		Payload: MessageStoreFile{
-			Key:  key,
+			Key:  hashKey(key),
 			Size: size + 16,
 		},
 	}
